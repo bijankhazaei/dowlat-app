@@ -1,0 +1,624 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "Zeenome API",
+        "description": "Zeenome API documentation",
+        "version": "1.0.0"
+    },
+    "paths": {
+        "/api/auth/sign-in": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Sign In",
+                "description": "Sign in to user account.",
+                "operationId": "2c7272ad7976a7022287b5c1f2268ee3",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "mobile"
+                                ],
+                                "properties": {
+                                    "mobile": {
+                                        "description": "User's mobile number",
+                                        "type": "string",
+                                        "example": "09123456789"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OTP sent successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "ok": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "example": null,
+                                            "nullable": true
+                                        },
+                                        "messages": {
+                                            "example": "[]"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "ok": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "data": {
+                                            "example": null,
+                                            "nullable": true
+                                        },
+                                        "messages": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/auth/sign-validate": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Verify OTP",
+                "description": "Verify the OTP and authenticate the user.",
+                "operationId": "fccd62681b97f09a889fd70303ac55dd",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "mobile",
+                                    "otp"
+                                ],
+                                "properties": {
+                                    "mobile": {
+                                        "description": "User's mobile number",
+                                        "type": "string",
+                                        "example": "09123456789"
+                                    },
+                                    "otp": {
+                                        "description": "One-time password (OTP)",
+                                        "type": "string",
+                                        "example": "1234"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "User authenticated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "ok": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "customer": {
+                                                    "type": "object"
+                                                },
+                                                "token": {
+                                                    "type": "string",
+                                                    "example": "access-token"
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        "messages": {
+                                            "example": "[]"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid OTP"
+                    }
+                }
+            }
+        },
+        "/api/auth/sign-out": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Logout user",
+                "description": "Logout the authenticated user.",
+                "operationId": "0ba21deb9ec32185346df2923c70637e",
+                "responses": {
+                    "200": {
+                        "description": "Successfully logged out",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Logged out successfully"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/cart": {
+            "get": {
+                "tags": [
+                    "Cart"
+                ],
+                "summary": "Get current open cart details",
+                "description": "Get cart details.",
+                "operationId": "f036291f758159ce3e62af811e5b2844",
+                "responses": {
+                    "200": {
+                        "description": "Cart details",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Cart not found"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/cart/add-item": {
+            "post": {
+                "tags": [
+                    "Cart"
+                ],
+                "summary": "Add item to cart",
+                "description": "Add an item to the cart.",
+                "operationId": "22083596dfa94a0e6c6748981a965e97",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "journey_id",
+                                    "interval"
+                                ],
+                                "properties": {
+                                    "journey_id": {
+                                        "description": "Journey ID",
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "interval": {
+                                        "description": "Interval for journey",
+                                        "type": "string",
+                                        "example": "weekly"
+                                    },
+                                    "cart_id": {
+                                        "description": "Cart ID (optional if cart is created automatically)",
+                                        "type": "integer",
+                                        "example": 1
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Item added to cart successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/cart/reduce": {
+            "delete": {
+                "tags": [
+                    "Cart"
+                ],
+                "summary": "Remove item from cart",
+                "description": "Remove an item from the cart.",
+                "operationId": "4fb28ce0d415baf4a3cf0927aa4f1ef4",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "cart_id",
+                                    "item_id"
+                                ],
+                                "properties": {
+                                    "cart_id": {
+                                        "description": "Cart ID",
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "item_id": {
+                                        "description": "Item ID in the cart",
+                                        "type": "integer",
+                                        "example": 10
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Item removed from cart",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    },
+                    "500": {
+                        "description": "Failed to remove item"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/cart/remove-item": {
+            "delete": {
+                "tags": [
+                    "Cart"
+                ],
+                "summary": "Remove item from cart",
+                "description": "Remove an item from the cart.",
+                "operationId": "493b2ae8331d5c7a390eb8f13dd2764d",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "cart_id",
+                                    "item_id"
+                                ],
+                                "properties": {
+                                    "cart_id": {
+                                        "description": "Cart ID",
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "item_id": {
+                                        "description": "Item ID in the cart",
+                                        "type": "integer",
+                                        "example": 10
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Item removed from cart",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    },
+                    "500": {
+                        "description": "Failed to remove item"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/journeys": {
+            "get": {
+                "tags": [
+                    "Journeys"
+                ],
+                "summary": "Get all journeys",
+                "operationId": "5b207b56e830e9f011b4ce8aa36ba931",
+                "responses": {
+                    "200": {
+                        "description": "OTP sent successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "ok": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "example": null,
+                                            "nullable": true
+                                        },
+                                        "messages": {
+                                            "example": "[]"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/journeys/{journey}": {
+            "get": {
+                "tags": [
+                    "Journeys"
+                ],
+                "summary": "Get a journey",
+                "operationId": "f89337f0b01583df545c042d77eee6cc",
+                "parameters": [
+                    {
+                        "name": "journey",
+                        "in": "path",
+                        "description": "Journey ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OTP sent successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "ok": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "example": null,
+                                            "nullable": true
+                                        },
+                                        "messages": {
+                                            "example": "[]"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Journey not found"
+                    }
+                }
+            }
+        },
+        "/api/my-journeys": {
+            "get": {
+                "tags": [
+                    "Journeys"
+                ],
+                "summary": "Get user's journeys",
+                "operationId": "5023a283ceec288658f7ba7708c20757",
+                "responses": {
+                    "200": {
+                        "description": "OTP sent successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "ok": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "example": null,
+                                            "nullable": true
+                                        },
+                                        "messages": {
+                                            "example": "[]"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    }
+                }
+            }
+        },
+        "/api/auth/customer": {
+            "get": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Get customer details",
+                "description": "Get authenticated customer details.",
+                "operationId": "93c40dfc7e74fcde418f3921499d4be1",
+                "responses": {
+                    "200": {
+                        "description": "Returns customer details",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "customer": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/auth/update-profile": {
+            "put": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Update user profile",
+                "description": "Update the user profile.",
+                "operationId": "45dacd9942d599ea715381a27c96a654",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "first_name",
+                                    "last_name",
+                                    "mobile",
+                                    "national_code"
+                                ],
+                                "properties": {
+                                    "first_name": {
+                                        "type": "string",
+                                        "example": "John"
+                                    },
+                                    "last_name": {
+                                        "type": "string",
+                                        "example": "Doe"
+                                    },
+                                    "mobile": {
+                                        "type": "string",
+                                        "example": "09123456789"
+                                    },
+                                    "national_code": {
+                                        "type": "string",
+                                        "example": "1234567890"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Profile updated successfully"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "Auth",
+            "description": "Authentication endpoints"
+        },
+        {
+            "name": "Cart",
+            "description": "Cart management endpoints"
+        },
+        {
+            "name": "Journeys",
+            "description": "Journeys"
+        }
+    ]
+}

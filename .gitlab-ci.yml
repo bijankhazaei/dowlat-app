@@ -1,0 +1,129 @@
+image: baserepo.pishtazteb.com/repo/devops/php:8.2-fpm
+cache:
+  key: '$CI_COMMIT_REF_NAME'
+stages:
+  - build_develop
+  - build_production
+  - deploy_develop
+  - deploy_production
+
+variables:
+  DOCKER_DRIVER: overlay2
+  DOCKER_HOST: tcp://$runner
+  DOCKER_TLS_CERTDIR: ""
+  REG_URL: https://repo.pishtazteb.com
+  BASEREG_URL: https://baserepo.pishtazteb.com
+  FF_USE_FASTZIP: "true"
+  ARTIFACT_COMPRESSION_LEVEL: "fast"
+  CACHE_COMPRESSION_LEVEL: "fast"
+
+
+## build develop
+
+build_develop:
+  stage: build_develop
+  image: baserepo.pishtazteb.com/repo/devops/docker:dind
+
+  tags:
+    - data
+  before_script:
+    - ls -a
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $REG_URL
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $BASEREG_URL
+  script:
+    - docker rmi  repo.pishtazteb.com/repo/dev/chichest-panel-app || true
+    - docker rmi  repo.pishtazteb.com/repo/dev/chichest-panel-supervisor || true
+    - docker rmi  repo.pishtazteb.com/repo/dev/chichest-panel-webserver || true
+
+    - docker build -t repo.pishtazteb.com/repo/dev/chichest-panel-app .
+    - docker build -f supervisor.Dockerfile -t repo.pishtazteb.com/repo/dev/chichest-panel-supervisor .
+    - docker build -f nginx.Dockerfile -t repo.pishtazteb.com/repo/dev/chichest-panel-webserver .
+    - docker push repo.pishtazteb.com/repo/dev/chichest-panel-app
+    - docker push repo.pishtazteb.com/repo/dev/chichest-panel-supervisor
+    - docker push repo.pishtazteb.com/repo/dev/chichest-panel-webserver
+
+  only:
+    - develop
+
+## build production
+
+build_production:
+  stage: build_production
+  image: baserepo.pishtazteb.com/repo/devops/docker:dind
+
+  tags:
+    - data
+  before_script:
+    - ls -a
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $REG_URL
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $BASEREG_URL
+  script:
+    - docker rmi  repo.pishtazteb.com/repo/prod/chichest-panel-app || true
+    - docker rmi  repo.pishtazteb.com/repo/prod/chichest-panel-supervisor || true
+    - docker rmi  repo.pishtazteb.com/repo/prod/chichest-panel-webserver || true
+
+    - docker build -t repo.pishtazteb.com/repo/prod/chichest-panel-app .
+    - docker build -f supervisor.Dockerfile -t repo.pishtazteb.com/repo/prod/chichest-panel-supervisor .
+    - docker build -f nginx.Dockerfile -t repo.pishtazteb.com/repo/prod/chichest-panel-webserver .
+    - docker push repo.pishtazteb.com/repo/prod/chichest-panel-app
+    - docker push repo.pishtazteb.com/repo/prod/chichest-panel-supervisor
+    - docker push repo.pishtazteb.com/repo/prod/chichest-panel-webserver
+
+  only:
+    - production
+
+
+## deploy develop
+
+deploy_develop:
+  stage: deploy_develop
+  image: baserepo.pishtazteb.com/repo/devops/ubuntu:latest
+  tags:
+    - backend
+  before_script:
+    - ls
+    - apt update
+    - apt install openssh-client -y
+    - eval $(ssh-agent -s)
+    - echo "$KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - touch ~/.ssh/config
+    - touch ~/.ssh/known_hosts
+    - chmod -R 600 ~/.ssh
+    - ssh-keyscan "$dev_data" >> ~/.ssh/known_hosts
+
+  script:
+    - ssh -o StrictHostKeyChecking=no -t  root@"$dev_data" "cd /opt/backend/chichest-panel; docker compose pull && docker compose down && docker compose up -d"
+    - ssh -o StrictHostKeyChecking=no -t  root@"$dev_data" "docker exec chichest-panel-app php artisan key:generate"
+    - ssh -o StrictHostKeyChecking=no -t  root@"$dev_data" "docker exec chichest-panel-app php artisan optimize:clear"
+
+  only:
+    - develop
+
+
+## deploy production
+
+deploy_production:
+  stage: deploy_production
+  image: baserepo.pishtazteb.com/repo/devops/ubuntu:latest
+  tags:
+    - backend
+  before_script:
+    - ls
+    - apt update
+    - apt install openssh-client -y
+    - eval $(ssh-agent -s)
+    - echo "$KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - touch ~/.ssh/config
+    - touch ~/.ssh/known_hosts
+    - chmod -R 600 ~/.ssh
+    - ssh-keyscan "$dev_data" >> ~/.ssh/known_hosts
+
+  script:
+    - ssh -o StrictHostKeyChecking=no -t  root@"$dev_data" "cd /opt/prod/backend/chichest-panel; docker compose pull && docker compose down && docker compose up -d"
+    #- ssh -o StrictHostKeyChecking=no -t  root@"$dev_data" "docker exec chichest-panel-app php artisan key:generate"
+    #- ssh -o StrictHostKeyChecking=no -t  root@"$dev_data" "docker exec chichest-panel-app php artisan optimize:clear"
+
+  only:
+    - production

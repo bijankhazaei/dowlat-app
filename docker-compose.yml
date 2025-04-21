@@ -1,0 +1,295 @@
+services:
+    app:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        container_name: health-app
+        restart: unless-stopped
+        working_dir: /var/www
+        volumes:
+            - .:/var/www
+        networks:
+            - health-network
+
+    webserver:
+        build:
+            context: .
+            dockerfile: nginx.Dockerfile
+        container_name: health-webserver
+        restart: unless-stopped
+        ports:
+            - "8000:80"
+        volumes:
+            - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+            - .:/var/www
+        depends_on:
+            - app
+        networks:
+            - health-network
+    supervisor:
+        build:
+            context: .
+            dockerfile: supervisor.Dockerfile
+        container_name: health-supervisor
+        restart: unless-stopped
+        working_dir: /var/www
+        volumes:
+            - .:/var/www
+        networks:
+            - health-network
+
+    db:
+        image: mysql:8.0
+        container_name: health-db
+        restart: unless-stopped
+        environment:
+            MYSQL_ROOT_PASSWORD: root
+            MYSQL_DATABASE: health_db
+            MYSQL_USER: health_user
+            MYSQL_PASSWORD: health_password
+        ports:
+            - "3306:3306"
+        volumes:
+            - dbdata:/var/lib/mysql
+        networks:
+            - health-network
+
+    redis:
+        image: redis:alpine
+        container_name: health-redis
+        restart: unless-stopped
+        ports:
+            - "6379:6379"
+        volumes:
+            - redisdata:/data
+        networks:
+            - health-network
+
+    rabbitmq:
+        image: rabbitmq:3-management
+        container_name: rabbitmq
+        restart: unless-stopped
+        ports:
+            - "5672:5672"  # RabbitMQ port
+            - "15672:15672"  # RabbitMQ Management UI
+        environment:
+            RABBITMQ_DEFAULT_USER: admin
+            RABBITMQ_DEFAULT_PASS: admin
+            RABBITMQ_DEFAULT_VHOST: tahamtan_job
+        volumes:
+            - rabbitmqdata:/var/lib/rabbitmq
+        networks:
+            - health-network
+
+    phpmyadmin:
+        image: phpmyadmin/phpmyadmin
+        container_name: health-phpmyadmin
+        restart: unless-stopped
+        ports:
+            - "8080:80"
+        environment:
+            PMA_HOST: db
+            MYSQL_ROOT_PASSWORD: root
+        depends_on:
+            - db
+        networks:
+            - health-network
+    minio:
+        image: minio/minio
+        container_name: health-minio
+        restart: unless-stopped
+        ports:
+            - "9011:9000"
+            - "9001:9001"
+        environment:
+            MINIO_ROOT_USER: minio
+            MINIO_ROOT_PASSWORD: minio123
+        volumes:
+            - miniodata:/data
+        command: server --console-address ":9001" /data
+        networks:
+            - health-network
+    sentry:
+        image: getsentry/sentry:latest
+        platform: linux/amd64
+        environment:
+            SENTRY_SECRET_KEY: ${SENTRY_SECRET_KEY}
+            SENTRY_POSTGRES_HOST: sentry-postgres
+            SENTRY_DB_NAME: sentry
+            SENTRY_DB_USER: sentry
+            SENTRY_DB_PASSWORD: sentrypassword
+            SENTRY_REDIS_HOST: health-redis  # Add this
+            SENTRY_REDIS_PORT: 6379          # Add this
+        ports:
+            - "9022:9000"
+        depends_on: # Add this
+            - redis
+            - sentry-postgres
+        networks:
+            - health-network                 # Add this
+
+    sentry-postgres:
+        image: postgres:12
+        platform: linux/amd64
+        environment:
+            POSTGRES_USER: sentry
+            POSTGRES_PASSWORD: sentrypassword
+            POSTGRES_DB: sentry
+
+    mongodb:
+        image: mongo:latest
+        container_name: mongodb
+        restart: always
+        environment:
+            MONGO_INITDB_ROOT_USERNAME: root
+            MONGO_INITDB_ROOT_PASSWORD: example
+        ports:
+            - "27017:27017"
+        volumes:
+            - mongodb-data:/data/db
+        healthcheck:
+            test: [ "CMD", "mongosh", "--eval", "db.adminCommand('ping')" ]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+            start_period: 10s
+        networks:
+            - health-network
+
+    mongo-express:
+        image: mongo-express:latest
+        container_name: mongo-express
+        restart: always
+        ports:
+            - "8081:8081"
+        environment:
+            ME_CONFIG_MONGODB_SERVER: mongodb
+            ME_CONFIG_MONGODB_ADMINUSERNAME: root
+            ME_CONFIG_MONGODB_ADMINPASSWORD: example
+            ME_CONFIG_BASICAUTH_USERNAME: admin
+            ME_CONFIG_BASICAUTH_PASSWORD: pass
+        depends_on:
+            - mongodb
+        healthcheck:
+            test: [ "CMD", "wget", "-O", "/dev/null", "http://localhost:8081" ]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+            start_period: 10s
+
+    mehranai-api:
+        image: repo.pishtazteb.com/dev/mehranai
+        container_name: mehranai-api
+        environment:
+            RABBIT_URI: amqp://admin:admin@rabbitmq:5672/tahamtan_job
+            REQ_Q_NAME: mehranai_req
+            RES_Q_NAME: mehranai_res
+
+            db_cfg__uri: "mongodb://root:example@mongodb:27017"
+            OPENAI_API_KEY: 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
+
+            agent_cfg__lifestyle_ingestion_cfg__ingestion_chain__llm_name: deepseek/deepseek-r1
+            agent_cfg__lifestyle_intervention_cfg__intervention_chain__llm_name: openai/gpt-4o-mini
+            agent_cfg__lifestyle_intervention_cfg__reflection_chain__llm_name: deepseek/deepseek-r1
+            agent_cfg__lifestyle_intervention_cfg__translation_chain__llm_name: openai/gpt-4o-mini
+
+            LANGCHAIN_TRACING_V2: true
+            LANGCHAIN_ENDPOINT: "https://api.smith.langchain.com"
+            LANGCHAIN_API_KEY: "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"
+            LANGCHAIN_PROJECT: "pr-dear-chauffeur-65"
+
+        command: [ "python","main.py","start-api" ]
+        ports:
+            - "8002:8000"
+        restart: unless-stopped
+        depends_on:
+            - rabbitmq
+        networks:
+            - health-network
+    mehranai-service:
+        image: repo.pishtazteb.com/dev/mehranai
+        environment:
+            RABBIT_URI: amqp://admin:admin@rabbitmq:5672/tahamtan_job
+            REQ_Q_NAME: mehranai_req
+            RES_Q_NAME: mehranai_res
+
+            db_cfg__uri: "mongodb://root:example@127.0.0.1:27017"
+            OPENAI_API_KEY: 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
+
+            agent_cfg__lifestyle_ingestion_cfg__ingestion_chain__llm_name: deepseek/deepseek-r1
+            agent_cfg__lifestyle_intervention_cfg__intervention_chain__llm_name: openai/gpt-4o-mini
+            agent_cfg__lifestyle_intervention_cfg__reflection_chain__llm_name: deepseek/deepseek-r1
+            agent_cfg__lifestyle_intervention_cfg__translation_chain__llm_name: openai/gpt-4o-mini
+
+            LANGCHAIN_TRACING_V2: true
+            LANGCHAIN_ENDPOINT: "https://api.smith.langchain.com"
+            LANGCHAIN_API_KEY: "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"
+            LANGCHAIN_PROJECT: "pr-dear-chauffeur-65"
+
+        command: [ "python","main.py","start-service" ]
+        ports:
+            - "8003:8000"
+        restart: unless-stopped
+        depends_on:
+            - rabbitmq
+        networks:
+            - health-network
+    lablamma:
+        image: repo.pishtazteb.com/dev/lablamma
+        networks:
+            - health-network
+        environment:
+            RABBIT_URI: amqp://admin:HHkjshdf83mndh@192.168.212.13:5672/
+            REQ_Q_NAME: longevity_parsing_requests
+            RES_Q_NAME: longevity_parsed_results
+            #LANGCHAIN_TRACING_V2: true
+            #LANGCHAIN_ENDPOINT: "https://api.smith.langchain.com"
+            #LANGCHAIN_API_KEY: "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"
+            #LANGCHAIN_PROJECT: "pr-dear-chauffeur-65"
+            minio_cfg__endpoint: storage.zeenome.ir:443
+            minio_cfg__secure: true
+            minio_cfg__access_key: 0iJJ8ITRCcgshXOLgmN8
+            minio_cfg__secret_key: 1kyVZUaJRZaXOhh60BG5MpxaXwtJ9WPoqmeRxaPg
+            minio_cfg__bucket: zeenome-private-bucket
+            openrouter_cfg__api_key: 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
+            ocr_cfg__ocr_model: gpt-4o
+            ocr_cfg__normalizer_model: openai/o1-mini
+        command: [ "python","main.py","start" ]
+        restart: unless-stopped
+
+    qrawl:
+        image: repo.pishtazteb.com/dev/qrawl
+        networks:
+            - health-network
+        environment:
+            RABBIT_URI: amqp://admin:HHkjshdf83mndh@192.168.212.13:5672/
+            REQ_Q_NAME: life_style_parsing_requests
+            RES_Q_NAME: life_style_parsed_results
+            AUTH_KEY: "API-Key 369f614a47d9a3deec0dc6c47a5a56a8ff4e7b1f"
+            FORM_ID: "HKVAbbzX"
+        command: [ "python","main.py","start" ]
+        restart: always
+
+    kally:
+        image: repo.pishtazteb.com/dev/kally
+        networks:
+            - health-network
+        environment:
+            RABBIT_URI: amqp://admin:HHkjshdf83mndh@192.168.212.13:5672/
+            REQ_Q_NAME: life_style_scoring_requests
+            RES_Q_NAME: life_style_score_results
+        command: [ "python","main.py","start-service" ]
+        restart: unless-stopped
+volumes:
+    dbdata:
+    redisdata:
+    rabbitmqdata:
+        driver: local
+    miniodata:
+        driver: local
+    mongodb-data:
+        driver: local
+
+networks:
+    health-network:
+        driver: bridge
