@@ -19,7 +19,7 @@ class PermissionResource extends Resource
 
     public static function canAccess(): bool
     {
-        return auth()->check() && auth()->user()->hasRole(['admin', 'super_admin']);
+        return auth()->check() && auth()->user()->hasRole(['admin', 'super-admin']);
     }
 
     public static function form(Forms\Form $form): Forms\Form
