@@ -18,6 +18,11 @@ class RoleResource extends Resource
     protected static ?int $navigationSort = 9998;
     protected static ?string $navigationIcon = 'heroicon-o-shield-check';
 
+    public static function canAccess(): bool
+    {
+        return auth()->check() && auth()->user()->hasRole(['admin', 'super_admin']);
+    }
+
     public static function form(Forms\Form $form): Forms\Form
     {
         // add multiselect to add permissions to role

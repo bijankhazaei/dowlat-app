@@ -15,10 +15,11 @@ class SuperAdminSeeder extends Seeder
 
         // 2️⃣ ایجاد کاربر Super Admin (اگر وجود ندارد)
         $user = User::firstOrCreate(
-            ['email' => 'admin@example.com'],
+            ['email' => 'afshinkhiabani@gmail.com'],
             [
-                'name' => 'Super Admin',
-                'password' => bcrypt('password'),
+                'first_name' => 'Super',
+                'last_name' => 'Admin',
+                'password' => bcrypt('@fshin123'),
             ]
         );
 

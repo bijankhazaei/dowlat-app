@@ -25,6 +25,11 @@ class PaymentResource extends Resource
     protected static ?string $label = 'پرداخت';
     protected static ?string $recordTitleAttribute = 'journey.name';
 
+    public static function canAccess(): bool
+    {
+        return auth()->check() && auth()->user()->hasRole(['admin', 'super_admin']);
+    }
+
     public static function shouldRegisterNavigation(): bool
     {
         return false;

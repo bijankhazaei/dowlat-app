@@ -25,6 +25,12 @@ class User extends Authenticatable implements HasMedia, FilamentUser
      * @var list<string>
      */
     protected $fillable = [
+        'username',
+        'first_name',
+        'last_name',
+        'national_code',
+        'phone',
+        'address',
         'name',
         'email',
         'password',
@@ -55,7 +61,7 @@ class User extends Authenticatable implements HasMedia, FilamentUser
 
     public function canAccessPanel(Panel $panel): bool
     {
-        return $this->hasRole('super-admin');
+        return $this->hasRole(['super-admin', 'student', 'admin']);
     }
 
     public function registerMediaCollections(): void
@@ -66,5 +72,11 @@ class User extends Authenticatable implements HasMedia, FilamentUser
     public function reservations(): HasMany
     {
         return $this->hasMany(MealReservation::class);
+    }
+
+    // fill name colmn  with first_name and last_name
+    public function getNameAttribute(): string
+    {
+        return $this->first_name . ' ' . $this->last_name;
     }
 }

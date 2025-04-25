@@ -24,6 +24,11 @@ class MealResource extends Resource
 
     protected static ?string $label = 'غذا';
 
+    public static function canAccess(): bool
+    {
+        return auth()->check() && auth()->user()->hasRole(['admin', 'super_admin']);
+    }
+
     public static function form(Form $form): Form
     {
         return $form

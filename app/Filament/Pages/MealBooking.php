@@ -29,6 +29,12 @@ class MealBooking extends Page
         $this->loadMeals();
     }
 
+    public static function canAccess(): bool
+    {
+        // Check if the user is authenticated and role is student
+        return auth()->check() && auth()->user()->hasRole('student');
+    }
+
     private function loadMeals(): void
     {
         $this->days = collect();
