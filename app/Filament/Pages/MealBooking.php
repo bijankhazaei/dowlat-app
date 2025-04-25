@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Models\Meal;
 use App\Models\MealReservation;
 use Filament\Pages\Page;
+use Hekmatinasser\Verta\Verta;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -38,8 +39,10 @@ class MealBooking extends Page
     private function loadMeals(): void
     {
         $this->days = collect();
-        $start = now()->addDay(); // فردا
-        $end = now()->addMonth(); // تا یک ماه بعد
+        $current = now();
+        $nextSaturday = $current->copy()->next('Saturday');
+        $start = $nextSaturday->copy();
+        $end = $nextSaturday->copy()->addMonth();
 
         $current = $start->copy();
         while ($current <= $end) {
@@ -48,11 +51,13 @@ class MealBooking extends Page
                 continue;
             }
 
-            $dayName = strtolower($current->englishDayOfWeek); // مثلاً saturday
+            $dayName = strtolower($current->englishDayOfWeek);
+            $persianDayName = verta($current)->format('l');
             $meals = Meal::where('day_of_week', $dayName)->get();
             $this->days->push([
+                'dayName' => $persianDayName,
                 'date' => $current->format('Y-m-d'),
-                'label' => $current->format('Y/m/d'),
+                'label' => verta($current)->format('Y/m/d'),
                 'meals' => $meals,
             ]);
 
@@ -60,7 +65,7 @@ class MealBooking extends Page
         }
     }
 
-    public function submit()
+    public function submit(): void
     {
         DB::beginTransaction();
 
