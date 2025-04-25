@@ -7,11 +7,19 @@ use App\Contracts\Enums\ETransactionStates;
 use App\Services\Payment\PaymentService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
+/**
+ * @property mixed $active_transaction
+ * @property mixed $id
+ * @property mixed $amount
+ */
 class Payment extends Model
 {
     protected $fillable = [
-        'order_id',
+        'meal_reservation_id',
         'status',
         'amount',
         'summary',
@@ -22,17 +30,17 @@ class Payment extends Model
         'amount' => 'decimal:2',
     ];
 
-    public function order()
+    public function mealReservation(): BelongsTo
     {
-        return $this->belongsTo(Order::class);
+        return $this->belongsTo(MealReservation::class);
     }
 
-    public function transactions()
+    public function transactions(): HasMany
     {
         return $this->hasMany(Transaction::class);
     }
 
-    public function activeTransaction()
+    public function activeTransaction(): HasOne
     {
         return $this->hasOne(Transaction::class)
             ->where('status', ETransactionStates::Success)

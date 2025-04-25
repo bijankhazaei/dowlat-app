@@ -2,7 +2,6 @@
 
 namespace App\Http\Middleware;
 
-use App\Models\Customer;
 use App\Models\Transaction;
 use Closure;
 use Illuminate\Http\Request;

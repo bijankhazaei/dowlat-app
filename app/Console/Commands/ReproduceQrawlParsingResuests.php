@@ -3,9 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Jobs\LifeStyleParsingProducer;
-use App\Models\Customer;
 use Illuminate\Console\Command;
-use App\Models\OJLifeStyleScore;
 
 class ReproduceQrawlParsingResuests extends Command
 {

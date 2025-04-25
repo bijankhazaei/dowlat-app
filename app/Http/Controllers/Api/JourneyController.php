@@ -6,8 +6,6 @@ use App\Contracts\Enums\EOrderStates;
 use App\Contracts\Enums\JourneySlug;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\JourneyResource;
-use App\Models\Customer;
-use App\Models\Journey;
 use App\Repositories\Journey\JourneyRepository;
 use App\Repositories\Order\OrderRepository;
 use App\Services\JourneyLimitations\Facade\JourneyLimitations;

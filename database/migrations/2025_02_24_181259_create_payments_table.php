@@ -1,6 +1,7 @@
 <?php
 
 use App\Contracts\Enums\EPaymentStates;
+use App\Models\MealReservation;
 use App\Models\Order;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
@@ -15,7 +16,8 @@ return new class extends Migration
     {
         Schema::create('payments', function (Blueprint $table) {
             $table->id();
-            $table->foreignIdFor(Order::class,'order_id')->constrained('orders');
+            $table->foreignIdFor(MealReservation::class,'meal_reservation_id')
+                ->constrained('meal_reservations');
             $table->enum('status', EPaymentStates::values())->default(EPaymentStates::Unpaid->value);
             $table->unsignedBigInteger('amount');
             $table->text('summary')->nullable();

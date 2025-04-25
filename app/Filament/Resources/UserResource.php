@@ -12,12 +12,11 @@ use Rawilk\FilamentPasswordInput\Password;
 class UserResource extends Resource
 {
     protected static ?string $model = User::class;
-    protected static ?string $navigationGroup = 'تنظیمات';
-    protected static ?string $navigationLabel = 'مدیران';
-    protected static ?string $pluralModelLabel  = 'مدیران';
+    protected static ?string $navigationLabel = 'کاربران';
+    protected static ?string $pluralModelLabel  = 'کاربران';
 
     protected static ?string $label = 'مدیر';
-    protected static ?int $navigationSort = 9999;
+    protected static ?int $navigationSort = 100;
     protected static ?string $navigationIcon = 'heroicon-o-user-group';
 
     public static function form(Forms\Form $form): Forms\Form

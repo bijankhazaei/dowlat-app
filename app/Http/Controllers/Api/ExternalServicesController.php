@@ -4,13 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Events\LifeStylePorslineCompleted;
 use App\Http\Controllers\Controller;
-use App\Models\Customer;
-use App\Models\OJLifeStyleScore;
-use App\Models\Transaction;
-use App\Services\Payment\PaymentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 
 class ExternalServicesController extends Controller
 {

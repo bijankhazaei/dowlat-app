@@ -18,8 +18,6 @@ class DatabaseSeeder extends Seeder
         if(env('APP_ENV') !== 'production') {
             $this->call([
                 SuperAdminSeeder::class,
-                CustomerSeeder::class,
-                JourneySeeder::class,
                 RoleSeeder::class,
                 PermissionSeeder::class
             ]);
