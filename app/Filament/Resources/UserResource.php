@@ -32,9 +32,9 @@ class UserResource extends Resource
     {
         return $form->schema([
             Forms\Components\TextInput::make('first_name')
-                ->label('نام')->required(),
+                ->label('نام'),
             Forms\Components\TextInput::make('last_name')
-                ->label('نام خانوادگی')->required(),
+                ->label('نام خانوادگی'),
             Forms\Components\TextInput::make('username')
                 ->label('نام کاربری')->required()->unique(
                     table: 'users',
@@ -42,7 +42,7 @@ class UserResource extends Resource
                     ignoreRecord: true
                 ),
             Forms\Components\TextInput::make('phone')
-                ->label('شماره تلفن')->tel()->required()->unique(
+                ->label('شماره تلفن')->tel()->unique(
                     table: 'users',
                     column: 'phone',
                     ignoreRecord: true
