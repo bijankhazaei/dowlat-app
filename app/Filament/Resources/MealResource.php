@@ -53,6 +53,14 @@ class MealResource extends Resource
                     ])
                     ->required(),
 
+                Select::make('week_number')
+                    ->label('شماره هفته')
+                    ->options([
+                        1 => 'هفته اول',
+                        2 => 'هفته دوم',
+                    ])
+                    ->required(),
+
                 TextInput::make('title')
                     ->label('عنوان غذا')
                     ->required()

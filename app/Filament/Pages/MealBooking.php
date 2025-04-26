@@ -17,6 +17,7 @@ class MealBooking extends Page
     protected static ?string $title = 'رزرو غذا';
     protected static string $view = 'filament.pages.meal-booking';
 
+
     public Collection $days;
     public array $selectedMeals = [];
 
@@ -27,6 +28,7 @@ class MealBooking extends Page
 
     public function mount(): void
     {
+        $this->selectedMeals = [];
         $this->loadMeals();
     }
 
@@ -46,14 +48,18 @@ class MealBooking extends Page
 
         $current = $start->copy();
         while ($current <= $end) {
-            if ($current->isFriday()) {
+            if ($current->isThursday() || $current->isFriday()) {
                 $current->addDay();
                 continue;
             }
 
             $dayName = strtolower($current->englishDayOfWeek);
             $persianDayName = verta($current)->format('l');
-            $meals = Meal::where('day_of_week', $dayName)->get();
+            $daysPassed = $start->diffInDays($current);
+            $weekNumber = (int) floor($daysPassed / 7) % 2 == 0 ? 1 : 2;
+            $meals = Meal::where('day_of_week', $dayName)
+                ->where('week_number', $weekNumber)
+                ->get();
             $this->days->push([
                 'dayName' => $persianDayName,
                 'date' => $current->format('Y-m-d'),

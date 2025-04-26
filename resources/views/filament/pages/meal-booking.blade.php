@@ -3,7 +3,7 @@
         @foreach ($days as $day)
             <div class="mb-lg-5 mt-6">
                 <h3 class="text-sm font-semibold mb-2">
-                    {{ $day['label'] }} — {{ $day['dayName'] }}
+                    {{ $day['dayName'] }} - {{ $day['label'] }}
                 </h3>
 
                 {{-- 1) table-fixed + colgroup for widths --}}
@@ -16,9 +16,9 @@
                     </colgroup>
                     <thead>
                     <tr class="bg-gray-200">
-                        <th class="px-4 py-2 text-center">انتخاب</th>
-                        <th class="px-4 py-2 text-left">نوع غذا</th>
-                        <th class="px-4 py-2 text-left">عنوان</th>
+                        <th class="px-4 py-2 text-right">انتخاب</th>
+                        <th class="px-4 py-2 text-right">نوع غذا</th>
+                        <th class="px-4 py-2 text-right">عنوان</th>
                         <th class="px-4 py-2 text-right">قیمت</th>
                     </tr>
                     </thead>
@@ -26,22 +26,28 @@
                     @foreach ($day['meals'] as $meal)
                         {{-- 2) Alpine + Livewire entangle --}}
                         @php
-                            $dayDate =  $day['date'];
-                            $text = "{checked: @entangle('selectedMeals[$dayDate][$meal->id]').defer}"
+                            $dayKey = str_replace('-', '_', $day['date']);
                         @endphp
 
                         <tr
-                            x-data="{{$dayDate}}"
+                            x-data="{ checked: @entangle('selectedMeals.'.$day['date'].'.'.$meal->id) }"
                             :class="{ 'bg-green-100': checked }"
                             class="border-b"
                         >
-                            <td class="px-4 py-2 text-center">
+                            <td class="px-4 py-2 text-right">
                                 <x-filament::input.checkbox
-                                    wire:model.defer="selectedMeals.{{ $dayDate }}.{{ $meal->id }}"
+                                    x-model="checked"
+                                    wire:model.defer="selectedMeals.{{ $day['date'] }}.{{ $meal->id }}"
                                     label=""
                                 />
                             </td>
-                            <td class="px-4 py-2">{{ $meal->meal_type }}</td>
+                            <td class="px-4 py-2">
+                                {{ [
+                                    'main' => 'غذای اصلی',
+                                    'side' => 'پیش‌غذا',
+                                    'drink' => 'نوشیدنی',
+                                ][$meal->meal_type] ?? 'نامشخص' }}
+                            </td>
                             <td class="px-4 py-2">{{ $meal->title }}</td>
                             <td class="px-4 py-2 text-right">{{ number_format($meal->price) }} تومان</td>
                         </tr>

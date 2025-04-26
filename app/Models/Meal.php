@@ -12,6 +12,7 @@ class Meal extends Model
     protected $fillable = [
         'day_of_week',
         'meal_type',
+        'week_number',
         'title',
         'price',
     ];
