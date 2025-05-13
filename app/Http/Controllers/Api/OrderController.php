@@ -10,18 +10,15 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\CartResource;
 use App\Http\Resources\OJLongevityScoreResource;
 use App\Http\Resources\OrderResource;
-use App\Models\OJLongevityScore;
-use App\Models\Order;
 use App\Repositories\Cart\CartRepository;
 use App\Repositories\Order\OrderRepository;
 use App\Repositories\Payment\PaymentRepository;
 use App\Services\Payment\PaymentService;
-use DB;
+use Illuminate\Support\Facades\DB;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use setasign\Fpdi\Fpdi;
-use setasign\Fpdf\Fpdf;
 
 
 class OrderController extends Controller

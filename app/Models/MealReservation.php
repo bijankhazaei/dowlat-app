@@ -11,8 +11,6 @@ class MealReservation extends Model
 
     protected $fillable = [
         'user_id',
-        'meal_id',
-        'reservation_date',
         'status',
         'price',
     ];

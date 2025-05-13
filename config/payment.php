@@ -31,8 +31,8 @@ return [
 
             'mode' => 'normal', // can be normal, direct
 
-            'merchantId' => "67b2ed626f380300090c2998", //env('APP_ENV') !== "production" ? "zibal" :"67b2ed626f380300090c2998",
-            'callbackUrl' => env('ZIBAL_CALLBACK_URL', 'https://devpanel/zeenome.ir/api/payments/verify'),
+            'merchantId' => env('APP_ENV') !== "production" ? "zibal" :"67b2ed626f380300090c2998",
+            'callbackUrl' => env('ZIBAL_CALLBACK_URL', 'http://panel.dabestandowlat.com/api/payments/verify'),
             'description' => 'Zeenome Longevity',
             'currency' => 'T',
         ],

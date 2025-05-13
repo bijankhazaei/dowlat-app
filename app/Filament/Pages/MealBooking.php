@@ -2,13 +2,21 @@
 
 namespace App\Filament\Pages;
 
+use App\Contracts\Enums\EPaymentStates;
 use App\Models\Meal;
 use App\Models\MealReservation;
+use App\Models\MealReservationItem;
+use App\Models\Payment;
+use App\Repositories\Payment\PaymentRepository;
+use App\Services\Payment\PaymentService;
+use Exception;
 use Filament\Pages\Page;
-use Hekmatinasser\Verta\Verta;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Shetabit\Multipay\Invoice;
+use App\Services\Payment\Facade\Shetabit;
+
 
 class MealBooking extends Page
 {
@@ -71,33 +79,63 @@ class MealBooking extends Page
         }
     }
 
-    public function submit(): void
+    public function submit()
     {
         DB::beginTransaction();
 
         try {
+
+            $total = 0;
+
+            $mealReservation = MealReservation::create([
+                'user_id' => Auth::id(),
+                'status' => 'pending',
+                'price' => 0
+            ]);
+
             foreach ($this->selectedMeals as $date => $mealIds) {
                 foreach ($mealIds as $mealId => $checked) {
                     if (!$checked) continue;
 
                     $meal = Meal::findOrFail($mealId);
-                    MealReservation::create([
-                        'user_id' => Auth::id(),
-                        'meal_id' => $meal->id,
+
+                    MealReservationItem::create([
+                        'meal_reservation_id' => $mealReservation->id,
+                        'meal_id' => $mealId,
                         'reservation_date' => $date,
-                        'price' => $meal->price,
-                        'status' => 'pending',
+                        'price' => $meal->price
                     ]);
+
+                    $total += $meal->price;
                 }
             }
 
-            DB::commit();
-            session()->flash('success', 'رزرو با موفقیت ثبت شد.');
-            $this->redirect('/');
+            $mealReservation->update(['price' => $total]);
 
-        } catch (\Exception $e) {
+            $payment = PaymentRepository::create([
+                'meal_reservation_id' => $mealReservation->id,
+                'amount' => $mealReservation->price,
+                'summary' => "سفارش " .auth()->user()->first_name. ' در ',
+                'state' => EPaymentStates::Unpaid->value
+            ]);
+
+            $transaction = $payment->activeTransactionOrCreate([
+                'return_url' => route('payment.callback')
+            ]);
+
+            DB::commit();
+
+            session()->flash('success', 'رزرو با موفقیت ثبت شد. انتقال به درگاه بانکی');
+            return  redirect(route('filament.pay', $transaction));
+        } catch (Exception $e) {
             DB::rollBack();
             session()->flash('error', 'خطا در ثبت رزرو. لطفاً دوباره تلاش کنید.');
+            dd($e);
         }
+    }
+
+    protected function storeBookingDetails($transactionId)
+    {
+
     }
 }

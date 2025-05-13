@@ -12,36 +12,26 @@ use Shetabit\Multipay\Exceptions\InvalidPaymentException;
 use Shetabit\Multipay\Exceptions\PreviouslyVerifiedException;
 use Shetabit\Multipay\Exceptions\PurchaseFailedException;
 use Shetabit\Multipay\Invoice;
-
+use Exception;
 class PaymentService
 {
     /**
      * Request a payment and return the gateway URL.
      *
      * @param Transaction $transaction
-     * @param int $userId Used for authentication of callback url
+     * @param $authCustomerId
      * @return string
-     * @throws RuntimeException
+     * @throws Exception
      */
     public static function request(Transaction &$transaction, $authCustomerId): string
     {
         if ($transaction->status === ETransactionStates::Init) {
             $invoice = (new Invoice())
                 ->amount($transaction->amount)
-                ->detail('mobile', $transaction->payment->order->customer->mobile)
-                ->detail('order_id', $transaction->payment->order_id)
                 ->detail('description', $transaction->payment->summary);
 
-            Shetabit::via($transaction->provider)
-                ->callbackUrl(
-                    URL::temporarySignedRoute(
-                        'payment-verify',
-                        now()->addMinutes(12),
-                        [
-                            'uid' => base64_encode($authCustomerId . ":" . $transaction->payment->order_id)
-                        ]
-                    )
-                )
+             Shetabit::via($transaction->provider)
+                ->callbackUrl(route('payment.callback', $transaction->id))
                 ->purchase($invoice, function ($driver, $transactionId) use ($transaction) {
                     $transaction->requested_at = now();
                     $transaction->authority = $transactionId;
@@ -49,13 +39,8 @@ class PaymentService
                     $transaction->status = ETransactionStates::Pending;
                     $transaction->save();
                 });
-
-            return $transaction->gateway_url;
         }
 
-        if ($transaction->status === ETransactionStates::Pending) {
-            return $transaction->gateway_url;
-        }
 
         throw new \RuntimeException("Transaction is not open to pay.");
     }
@@ -94,9 +79,9 @@ class PaymentService
                 $transaction->payment->status = EPaymentStates::Paid;
                 $transaction->payment->save();
 
-                if ($transaction->payment->order->status === EOrderStates::Pending) {
-                    $transaction->payment->order->status = EOrderStates::Processing;
-                    $transaction->payment->order->save();
+                if ($transaction->payment->mealReservation->status === EOrderStates::Pending) {
+                    $transaction->payment->mealReservation->status = EOrderStates::Processing;
+                    $transaction->payment->mealReservation->save();
                 }
             }
         } catch (PurchaseFailedException|InvalidPaymentException $e) {
@@ -114,9 +99,9 @@ class PaymentService
                 $transaction->payment->status = EPaymentStates::Paid;
                 $transaction->payment->save();
 
-                if ($transaction->payment->order->status === EOrderStates::Pending) {
-                    $transaction->payment->order->status = EOrderStates::Processing;
-                    $transaction->payment->order->save();
+                if ($transaction->payment->mealReservation->status === EOrderStates::Pending) {
+                    $transaction->payment->mealReservation->status = EOrderStates::Processing;
+                    $transaction->payment->mealReservation->save();
                 }
             }
         }
