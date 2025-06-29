@@ -20,6 +20,7 @@
         "laravel/passport": "^12.4",
         "laravel/tinker": "^2.9",
         "league/flysystem-aws-s3-v3": "^3.29",
+        "maatwebsite/excel": "^3.1",
         "mokhosh/filament-jalali": "^4.4",
         "rawilk/filament-password-input": "^2.0",
         "sentry/sentry-laravel": "^4.13",

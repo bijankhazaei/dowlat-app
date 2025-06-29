@@ -115,7 +115,7 @@ class PaymentService
                 $transaction->payment->save();
 
                 // Update meal reservation status to paid
-                if ($transaction->payment->mealReservation->status === EPaymentStates::Unpaid) {
+                if ($transaction->payment->mealReservation->status !== EPaymentStates::Paid) {
                     $transaction->payment->mealReservation->status = EPaymentStates::Paid;
                     $transaction->payment->mealReservation->save();
                 }

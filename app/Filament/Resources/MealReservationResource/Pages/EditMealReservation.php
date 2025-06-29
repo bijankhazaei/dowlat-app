@@ -13,7 +13,7 @@ class EditMealReservation extends EditRecord
 
     public function mount(int | string $record): void
     {
-        if (!auth()->user()?->can('edit meal reservations')) {
+        if (!auth()->user()?->hasRole('admin')) {
             abort(403);
         }
         parent::mount($record);

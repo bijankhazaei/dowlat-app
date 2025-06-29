@@ -11,6 +11,10 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\BadgeColumn;
+use App\Filament\Exports\MealReservationExporter;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\MealReservationExcelExport;
+use Filament\Forms\Components\DatePicker;
 
 class MealReservationResource extends Resource
 {
@@ -28,7 +32,9 @@ class MealReservationResource extends Resource
                 Forms\Components\Select::make('user_id')
                     ->relationship('user', 'first_name')
                     ->required()
-                    ->label('کاربر'),
+                    ->label('کاربر')
+                    ->visible(fn () => !auth()->user()?->hasRole('student'))
+                    ->default(auth()->user()?->hasRole('student') ? auth()->id() : null),
                 Forms\Components\Select::make('status')
                     ->options([
                         'pending' => 'در انتظار',
@@ -44,14 +50,20 @@ class MealReservationResource extends Resource
             ]);
     }
 
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user = auth()->user();
+
+        if ($user && $user->hasRole('student')) {
+            return $query->where('user_id', $user->id);
+        }
+        return $query;
+    }
+
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($query) => 
-                auth()->user()?->hasRole('user') 
-                    ? $query->where('user_id', auth()->id()) 
-                    : $query
-            )
             ->columns([
                 TextColumn::make('id')
                     ->label('شناسه')
@@ -69,22 +81,22 @@ class MealReservationResource extends Resource
                 BadgeColumn::make('status')
                     ->label('وضعیت')
                     ->colors([
-                        'warning' => 'pending',
-                        'success' => 'completed',
-                        'danger' => 'cancelled',
+                        'pending' => 'در انتظار',
+                        'paid' => 'تکمیل شده',
+                        'cancelled' => 'لغو شده',
                     ])
                     ->formatStateUsing(fn (string $state): string => match ($state) {
                         'pending' => 'در انتظار',
-                        'completed' => 'تکمیل شده',
+                        'paid' => 'تکمیل شده',
                         'cancelled' => 'لغو شده',
                         default => $state,
                     }),
                 BadgeColumn::make('payment.status')
                     ->label('وضعیت پرداخت')
                     ->colors([
-                        'warning' => 'unpaid',
-                        'success' => 'paid',
-                        'danger' => 'error',
+                        'pending' => 'در انتظار',
+                        'paid' => 'تکمیل شده',
+                        'cancelled' => 'لغو شده',
                     ])
                     ->formatStateUsing(fn ($state): string => match ($state?->value ?? $state) {
                         'unpaid' => 'پرداخت نشده',
@@ -94,14 +106,40 @@ class MealReservationResource extends Resource
                     }),
                 TextColumn::make('created_at')
                     ->label('تاریخ ایجاد')
-                    ->dateTime()
+                    ->formatStateUsing(fn ($state) => \Hekmatinasser\Verta\Verta::instance($state)->format('Y/m/d H:i'))
                     ->sortable(),
+            ])
+            ->headerActions([
+                Tables\Actions\Action::make('export')
+                    ->label('خروجی Excel')
+                    ->icon('heroicon-o-document-arrow-down')
+                    ->form([
+                        DatePicker::make('date_from')
+                            ->label('از تاریخ')
+                            ->displayFormat('Y/m/d')
+                            ->jalali(),
+                        DatePicker::make('date_to')
+                            ->label('تا تاریخ')
+                            ->displayFormat('Y/m/d')
+                            ->jalali(),
+                    ])
+                    ->action(function (array $data) {
+                        $query = MealReservation::query();
+                        if ($data['date_from']) {
+                            $query->whereDate('created_at', '>=', $data['date_from']);
+                        }
+                        if ($data['date_to']) {
+                            $query->whereDate('created_at', '<=', $data['date_to']);
+                        }
+                        return Excel::download(new MealReservationExcelExport($query), 'meal-reservations-' . date('Y-m-d') . '.xlsx');
+                    })
+                    ->visible(fn () => auth()->user()?->hasAnyRole(['admin', 'super-admin']))
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
                     ->options([
                         'pending' => 'در انتظار',
-                        'completed' => 'تکمیل شده',
+                        'paid' => 'تکمیل شده',
                         'cancelled' => 'لغو شده',
                     ])
                     ->label('وضعیت'),
@@ -121,14 +159,18 @@ class MealReservationResource extends Resource
             ->actions([
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make()
-                    ->visible(fn () => auth()->user()?->can('edit meal reservations')),
+                    ->visible(fn () => !auth()->user()?->hasRole('student')),
             ])
-            ->bulkActions([
-                // Only allow bulk actions for non-user roles
-            ])
-            ->headerActions([
-                // Only allow header actions for non-user roles  
-            ])
+            ->bulkActions(
+                auth()->user()?->hasRole('student') ? [] : [
+                    Tables\Actions\BulkActionGroup::make([
+                        Tables\Actions\DeleteBulkAction::make(),
+                        Tables\Actions\ExportBulkAction::make()
+                            ->exporter(MealReservationExporter::class)
+                            ->visible(fn () => auth()->user()?->hasAnyRole(['admin', 'super-admin']))
+                    ]),
+                ]
+            )
             ->defaultSort('created_at', 'desc');
     }
 
@@ -141,11 +183,16 @@ class MealReservationResource extends Resource
 
     public static function getPages(): array
     {
-        return [
+        $pages = [
             'index' => Pages\ListMealReservations::route('/'),
-            'create' => Pages\CreateMealReservation::route('/create'),
             'view' => Pages\ViewMealReservation::route('/{record}'),
-            'edit' => Pages\EditMealReservation::route('/{record}/edit'),
         ];
+
+        if (auth()->user()?->hasRole('admin')) {
+            $pages['create'] = Pages\CreateMealReservation::route('/create');
+            $pages['edit'] = Pages\EditMealReservation::route('/{record}/edit');
+        }
+
+        return $pages;
     }
 }
