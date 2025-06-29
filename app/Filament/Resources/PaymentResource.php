@@ -5,34 +5,26 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\PaymentResource\Pages;
 use App\Filament\Resources\PaymentResource\RelationManagers;
 use App\Models\Payment;
-use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\BadgeColumn;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class PaymentResource extends Resource
 {
     protected static ?string $model = Payment::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
-
-    protected static ?string $pluralModelLabel = 'پرداخت های های سفارش';
-
-    protected static ?string $label = 'پرداخت';
-    protected static ?string $recordTitleAttribute = 'journey.name';
+    protected static ?string $navigationIcon = 'heroicon-o-credit-card';
+    protected static ?string $navigationLabel = 'پرداخت‌ها';
+    protected static ?string $modelLabel = 'پرداخت';
+    protected static ?string $pluralModelLabel = 'پرداخت‌ها';
 
     public static function canAccess(): bool
     {
         return auth()->check() && auth()->user()->hasRole(['admin', 'super-admin']);
-    }
-
-    public static function shouldRegisterNavigation(): bool
-    {
-        return false;
     }
 
     public static function canDelete(Model $record): bool
@@ -40,32 +32,59 @@ class PaymentResource extends Resource
         return false;
     }
 
-    // redirect to order list resource instead of index
-    public static function getRedirectUrl(): string
-    {
-        return '/orders';
-    }
-
     public static function form(Form $form): Form
     {
-        return $form
-            ->schema([
-                //
-            ]);
+        return $form->schema([]);
     }
 
     public static function table(Table $table): Table
     {
         return $table
             ->columns([
-                //
+                TextColumn::make('id')
+                    ->label('شناسه')
+                    ->sortable(),
+                TextColumn::make('mealReservation.user.first_name')
+                    ->label('کاربر')
+                    ->searchable(),
+                TextColumn::make('amount')
+                    ->label('مبلغ')
+                    ->money('IRR')
+                    ->sortable(),
+                BadgeColumn::make('status')
+                    ->label('وضعیت')
+                    ->colors([
+                        'warning' => 'unpaid',
+                        'success' => 'paid',
+                        'danger' => 'error',
+                    ])
+                    ->formatStateUsing(fn ($state): string => match ($state?->value ?? $state) {
+                        'unpaid' => 'پرداخت نشده',
+                        'paid' => 'پرداخت شده',
+                        'error' => 'خطا در پرداخت',
+                        default => 'نامشخص',
+                    }),
+                TextColumn::make('summary')
+                    ->label('خلاصه')
+                    ->limit(50),
+                TextColumn::make('created_at')
+                    ->label('تاریخ ایجاد')
+                    ->dateTime()
+                    ->sortable(),
             ])
             ->filters([
-                //
+                Tables\Filters\SelectFilter::make('status')
+                    ->options([
+                        'unpaid' => 'پرداخت نشده',
+                        'paid' => 'پرداخت شده',
+                        'error' => 'خطا در پرداخت',
+                    ])
+                    ->label('وضعیت'),
             ])
             ->actions([
+                Tables\Actions\ViewAction::make(),
             ])
-            ->bulkActions([]);
+            ->defaultSort('created_at', 'desc');
     }
 
     public static function getRelations(): array
@@ -79,8 +98,7 @@ class PaymentResource extends Resource
     {
         return [
             'index' => Pages\ListPayments::route('/'),
-            'create' => Pages\CreatePayment::route('/create'),
-            'edit' => Pages\EditPayment::route('/{record}/edit'),
+            'view' => Pages\ViewPayment::route('/{record}'),
         ];
     }
 }

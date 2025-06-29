@@ -55,6 +55,11 @@ class ZibalCallbackAuthentication
             return response()->allowNonApiResult()->view('payment_callback', ['data' => ['statusCode' => 404]]);
         }
 
+        // If payment failed, update reservation status
+        if ($success === '0') {
+            $transaction->payment->mealReservation->update(['status' => 'cancelled']);
+        }
+
         $status = $request->query('status');
         if (!is_numeric($status) || intval($status) < -2 || intval($status) > 18) {
             return response()->allowNonApiResult()->view('payment_callback', ['data' => ['statusCode' => 404]]);
@@ -66,12 +71,12 @@ class ZibalCallbackAuthentication
             return response()->allowNonApiResult()->view('payment_callback', ['data' => ['statusCode' => 404]]);
         }
 
-        $customer = Customer::find($customerId);
-        if (!$customer) {
+        $user = \App\Models\User::find($customerId);
+        if (!$user) {
             return response()->allowNonApiResult()->view('payment_callback', ['data' => ['statusCode' => 404]]);
         }
 
-        Auth::setUser($customer);
+        Auth::setUser($user);
 
         return $next($request);
     }

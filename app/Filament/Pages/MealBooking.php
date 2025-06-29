@@ -7,15 +7,12 @@ use App\Models\Meal;
 use App\Models\MealReservation;
 use App\Models\MealReservationItem;
 use App\Models\Payment;
-use App\Repositories\Payment\PaymentRepository;
-use App\Services\Payment\PaymentService;
 use Exception;
+use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Shetabit\Multipay\Invoice;
-use App\Services\Payment\Facade\Shetabit;
 
 
 class MealBooking extends Page
@@ -81,6 +78,27 @@ class MealBooking extends Page
 
     public function submit()
     {
+        // Check if at least one meal is selected
+        $hasSelection = false;
+        foreach ($this->selectedMeals as $date => $mealIds) {
+            foreach ($mealIds as $mealId => $checked) {
+                if ($checked) {
+                    $hasSelection = true;
+                    break 2;
+                }
+            }
+        }
+
+        if (!$hasSelection) {
+            session()->flash('error', 'لطفاً حداقل یک غذا انتخاب کنید.');
+            Notification::make()
+                ->title('خطا')
+                ->body('لطفاً حداقل یک غذا انتخاب کنید.')
+                ->danger()
+                ->send();
+            return null;
+        }
+
         DB::beginTransaction();
 
         try {
@@ -112,11 +130,11 @@ class MealBooking extends Page
 
             $mealReservation->update(['price' => $total]);
 
-            $payment = PaymentRepository::create([
+            $payment = Payment::create([
                 'meal_reservation_id' => $mealReservation->id,
                 'amount' => $mealReservation->price,
-                'summary' => "سفارش " .auth()->user()->first_name. ' در ',
-                'state' => EPaymentStates::Unpaid->value
+                'summary' => "رزرو غذا توسط " . auth()->user()->first_name,
+                'status' => EPaymentStates::Unpaid
             ]);
 
             $transaction = $payment->activeTransactionOrCreate([
@@ -134,8 +152,5 @@ class MealBooking extends Page
         }
     }
 
-    protected function storeBookingDetails($transactionId)
-    {
 
-    }
 }

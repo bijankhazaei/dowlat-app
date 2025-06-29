@@ -14,4 +14,14 @@ class MealReservationItem extends Model
         'reservation_date',
         'price',
     ];
+
+    public function mealReservation()
+    {
+        return $this->belongsTo(MealReservation::class);
+    }
+
+    public function meal()
+    {
+        return $this->belongsTo(Meal::class);
+    }
 }

@@ -20,8 +20,13 @@ class MealReservation extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function meal(): BelongsTo
+    public function items()
     {
-        return $this->belongsTo(Meal::class);
+        return $this->hasMany(MealReservationItem::class);
+    }
+
+    public function payment()
+    {
+        return $this->hasOne(Payment::class);
     }
 }

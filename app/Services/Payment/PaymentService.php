@@ -9,6 +9,7 @@ use App\Contracts\Enums\ETransactionStates;
 use App\Services\Payment\Facade\Shetabit;
 use Illuminate\Support\Facades\URL;
 use Shetabit\Multipay\Exceptions\InvalidPaymentException;
+use Shetabit\Multipay\Exceptions\InvoiceNotFoundException;
 use Shetabit\Multipay\Exceptions\PreviouslyVerifiedException;
 use Shetabit\Multipay\Exceptions\PurchaseFailedException;
 use Shetabit\Multipay\Invoice;
@@ -25,32 +26,36 @@ class PaymentService
      */
     public static function request(Transaction &$transaction, $authCustomerId): string
     {
-        if ($transaction->status === ETransactionStates::Init) {
-            $invoice = (new Invoice())
-                ->amount($transaction->amount)
-                ->detail('description', $transaction->payment->summary);
-
-             Shetabit::via($transaction->provider)
-                ->callbackUrl(route('payment.callback', $transaction->id))
-                ->purchase($invoice, function ($driver, $transactionId) use ($transaction) {
-                    $transaction->requested_at = now();
-                    $transaction->authority = $transactionId;
-                    $transaction->gateway_url = config('payment.drivers.' . $transaction->provider . '.apiPaymentUrl') . $transactionId;
-                    $transaction->status = ETransactionStates::Pending;
-                    $transaction->save();
-                });
+        if ($transaction->status !== ETransactionStates::Init) {
+            throw new \RuntimeException("Transaction is not open to pay.");
         }
 
+        $invoice = (new Invoice())
+            ->amount($transaction->amount)
+            ->detail('description', $transaction->payment->summary)
+            ->detail('mobile', $authCustomerId); // Add customer mobile if available
 
-        throw new \RuntimeException("Transaction is not open to pay.");
+        $gatewayUrl = Shetabit::via($transaction->provider)
+            ->callbackUrl(route('payment.callback', $transaction->id))
+            ->purchase($invoice, function ($driver, $transactionId) use ($transaction) {
+                $transaction->requested_at = now();
+                $transaction->authority = $transactionId;
+                $transaction->gateway_url = config('payment.drivers.' . $transaction->provider . '.apiPaymentUrl') . $transactionId;
+                $transaction->status = ETransactionStates::Pending;
+                $transaction->save();
+            })
+            ->pay()
+            ->getAction(); // Get the gateway URL
+
+        return $gatewayUrl;
     }
 
     /**
      * Validate a transaction.
      *
      * @param Transaction $transaction
-     * @param int $userId
      * @return void
+     * @throws InvoiceNotFoundException
      */
     public static function validate(Transaction &$transaction): void
     {
@@ -59,51 +64,65 @@ class PaymentService
         }
 
         try {
-            $receipt = Shetabit::amount($transaction->amount)
+            $receipt = Shetabit::via($transaction->provider)
+                ->amount($transaction->amount)
                 ->transactionId($transaction->authority)
                 ->verify();
 
             $transaction->status = ETransactionStates::Success;
-            $transaction->reference = $receipt->refNumber;
+            $transaction->reference = $receipt->getReferenceId();
             $transaction->status_message = 'پرداخت با موفقیت انجام شد';
             $transaction->provider_status = 100;
             $transaction->validated_at = now();
-            if ($receipt->cardNumber) {
+
+            // Handle receipt details
+            $receiptDetails = $receipt->getDetails();
+            if (isset($receiptDetails['cardNumber'])) {
                 $m = $transaction->metadata ?? [];
-                $m['card_pan'] = $receipt->cardNumber;
+                $m['card_pan'] = $receiptDetails['cardNumber'];
                 $transaction->metadata = $m;
             }
             $transaction->save();
 
-            if ($transaction->payment->status === EPaymentStates::Unpaid) {
-                $transaction->payment->status = EPaymentStates::Paid;
-                $transaction->payment->save();
+            // Update payment and order status
+            self::updatePaymentStatus($transaction);
 
-                if ($transaction->payment->mealReservation->status === EOrderStates::Pending) {
-                    $transaction->payment->mealReservation->status = EOrderStates::Processing;
-                    $transaction->payment->mealReservation->save();
-                }
-            }
         } catch (PurchaseFailedException|InvalidPaymentException $e) {
             $transaction->status = ETransactionStates::Error;
             $transaction->status_message = $e->getMessage();
             $transaction->provider_status = $e->getCode();
+            $transaction->validated_at = now();
             $transaction->save();
         } catch (PreviouslyVerifiedException $e) {
             $transaction->status = ETransactionStates::Success;
-            $transaction->status_message = 'پرداخت با موفقیت انجام شد';
+            $transaction->status_message = 'پرداخت قبلاً تایید شده است';
             $transaction->validated_at = now();
             $transaction->save();
 
+            // Update payment and order status for previously verified transactions
+            self::updatePaymentStatus($transaction);
+        }
+    }
+
+    /**
+     * Update payment and meal reservation status after successful transaction
+     */
+    private static function updatePaymentStatus(Transaction $transaction): void
+    {
+        try {
             if ($transaction->payment->status === EPaymentStates::Unpaid) {
                 $transaction->payment->status = EPaymentStates::Paid;
                 $transaction->payment->save();
 
-                if ($transaction->payment->mealReservation->status === EOrderStates::Pending) {
-                    $transaction->payment->mealReservation->status = EOrderStates::Processing;
+                // Update meal reservation status to paid
+                if ($transaction->payment->mealReservation->status === EPaymentStates::Unpaid) {
+                    $transaction->payment->mealReservation->status = EPaymentStates::Paid;
                     $transaction->payment->mealReservation->save();
                 }
             }
+        } catch (\Exception $e) {
+            dd($e->getMessage());
         }
+
     }
 }

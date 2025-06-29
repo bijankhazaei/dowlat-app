@@ -27,7 +27,7 @@ class PaymentController extends Controller
 
         return Shetabit::via($transaction->provider)
             ->callbackUrl(
-                route('payment.callback', $transaction->id)
+                route('payment.callback')
             )
             ->purchase($invoice, function($driver, $transactionId) use ($transaction) {
                 $transaction->update([
@@ -43,93 +43,133 @@ class PaymentController extends Controller
 
     public function callback(Request $request)
     {
-        DB::beginTransaction();
+        try {
+            DB::beginTransaction();
 
-        $transaction = Transaction::with(
-            'payment',
-            'payment.mealReservation',
-            'payment.mealReservation.user',
-        )
-            ->where('authority', $request->query('trackId'))
-            ->first();
+            // Get trackId from Zibal callback
+            $trackId = $request->query('trackId');
 
-        PaymentService::validate($transaction);
+            if (!$trackId) {
+                return view('payment_callback', ['data' => ['statusCode' => 400, 'message' => 'trackId missing']]);
+            }
 
-        $data = [
-            "entity" => [
-                "payment_id" => $transaction->payment_id,
-                "transaction_id" => $transaction->id,
-                "order_id" => $transaction->payment->meal_reservation_id,
-                "ref_id" => $transaction->reference,
-                "amount" => $transaction->amount,
-                "currency" => "IRT",
-                "status" => $transaction->status,
-                "status_message" => $transaction->status_message,
-                "card_pan" => $transaction->metadata && !empty($transaction->metadata['card_pan']) ? $transaction->metadata['card_pan'] : null,
-                "summary" => $transaction->payment->summary,
-                "return_url" => $transaction->metadata && !empty($transaction->metadata['return_url']) ? $transaction->metadata['return_url'] : null,
-                "requested_at" => $transaction->requested_at,
-                "validated_at" => $transaction->validated_at,
-                "created_at" => $transaction->created_at,
-                "user" => [
-                    "id" => $transaction->payment->mealReservation->user->id,
-                    "mobile" => $transaction->payment->mealReservation->user->mobile,
-                    "first_name" => $transaction->payment->mealReservation->user->first_name,
-                    "last_name" => $transaction->payment->mealReservation->user->last_name,
-                    "gender" => $transaction->payment->mealReservation->user->gender,
-                    "email" => $transaction->payment->mealReservation->user->email,
+            $transaction = Transaction::with('payment.mealReservation.user')
+                ->where('authority', $trackId)
+                ->first();
+
+            if (!$transaction) {
+                return view('payment_callback', ['data' => ['statusCode' => 404, 'message' => 'Transaction not found']]);
+            }
+            // Validate the transaction
+            PaymentService::validate($transaction);
+
+            $data = [
+                "entity" => [
+                    "payment_id" => $transaction->payment_id,
+                    "transaction_id" => $transaction->id,
+                    "reservation_id" => $transaction->payment->meal_reservation_id,
+                    "ref_id" => $transaction->reference,
+                    "amount" => $transaction->amount,
+                    "currency" => "IRT",
+                    "status" => $transaction->status->value,
+                    "status_message" => $transaction->status_message,
+                    "summary" => $transaction->payment->summary,
+                    "requested_at" => $transaction->requested_at,
+                    "validated_at" => $transaction->validated_at,
+                    "created_at" => $transaction->created_at,
+                    "user" => [
+                        "id" => $transaction->payment->mealReservation->user->id,
+                        "mobile" => $transaction->payment->mealReservation->user->mobile,
+                        "first_name" => $transaction->payment->mealReservation->user->first_name,
+                        "last_name" => $transaction->payment->mealReservation->user->last_name,
+                    ],
                 ],
-            ],
-            "statusCode" => 200,
-        ];
+                "statusCode" => 200,
+            ];
 
-        DB::commit();
-        return response()->allowNonApiResult()->view('payment_callback', ['data' => $data]);
+            DB::commit();
+            return view('payment_callback', ['data' => $data]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            $data = [
+                "entity" => null,
+                "statusCode" => 500,
+                "message" => $e->getMessage()
+            ];
+
+            return view('payment_callback', ['data' => $data]);
+        }
     }
 
     public function verifyPayment(Request $request)
     {
-        DB::beginTransaction();
+        try {
+            DB::beginTransaction();
 
-        $transaction = Transaction::with(
-            'payment',
-            'payment.mealReservation',
-            'payment.mealReservation.user',
-        )
-            ->where('authority', $request->query('trackId'))
-            ->first();
+            // Get trackId from Zibal callback
+            $trackId = $request->query('trackId');
+            if (!$trackId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'trackId parameter is missing'
+                ], 400);
+            }
 
-        PaymentService::validate($transaction);
+            $transaction = Transaction::with('payment.mealReservation.user')
+                ->where('authority', $trackId)
+                ->first();
 
-        $data = [
-            "entity" => [
-                "payment_id" => $transaction->payment_id,
-                "transaction_id" => $transaction->id,
-                "order_id" => $transaction->payment->meal_reservation_id,
-                "ref_id" => $transaction->reference,
-                "amount" => $transaction->amount,
-                "currency" => "IRT",
-                "status" => $transaction->status,
-                "status_message" => $transaction->status_message,
-                "card_pan" => $transaction->metadata && !empty($transaction->metadata['card_pan']) ? $transaction->metadata['card_pan'] : null,
-                "summary" => $transaction->payment->summary,
-                "return_url" => $transaction->metadata && !empty($transaction->metadata['return_url']) ? $transaction->metadata['return_url'] : null,
-                "requested_at" => $transaction->requested_at,
-                "validated_at" => $transaction->validated_at,
-                "created_at" => $transaction->created_at,
-                "user" => [
-                    "id" => $transaction->payment->mealReservation->user->id,
-                    "mobile" => $transaction->payment->mealReservation->user->mobile,
-                    "first_name" => $transaction->payment->mealReservation->user->first_name,
-                    "last_name" => $transaction->payment->mealReservation->user->last_name,
-                    "gender" => $transaction->payment->mealReservation->user->gender,
-                    "email" => $transaction->payment->mealReservation->user->email,
+            if (!$transaction) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Transaction not found'
+                ], 404);
+            }
+
+            // Validate the transaction
+            PaymentService::validate($transaction);
+
+            $data = [
+                "entity" => [
+                    "payment_id" => $transaction->payment_id,
+                    "transaction_id" => $transaction->id,
+                    "reservation_id" => $transaction->payment->meal_reservation_id,
+                    "ref_id" => $transaction->reference,
+                    "amount" => $transaction->amount,
+                    "currency" => "IRT",
+                    "status" => $transaction->status->value,
+                    "status_message" => $transaction->status_message,
+                    "card_pan" => $transaction->metadata && !empty($transaction->metadata['card_pan']) ? $transaction->metadata['card_pan'] : null,
+                    "summary" => $transaction->payment->summary,
+                    "return_url" => $transaction->metadata && !empty($transaction->metadata['return_url']) ? $transaction->metadata['return_url'] : null,
+                    "requested_at" => $transaction->requested_at,
+                    "validated_at" => $transaction->validated_at,
+                    "created_at" => $transaction->created_at,
+                    "user" => [
+                        "id" => $transaction->payment->mealReservation->user->id,
+                        "mobile" => $transaction->payment->mealReservation->user->mobile,
+                        "first_name" => $transaction->payment->mealReservation->user->first_name,
+                        "last_name" => $transaction->payment->mealReservation->user->last_name,
+                        "email" => $transaction->payment->mealReservation->user->email ?? null,
+                    ],
                 ],
-            ],
-            "statusCode" => 200,
-        ];
+                "success" => true,
+                "statusCode" => 200,
+            ];
 
-        DB::commit();
-        return response()->allowNonApiResult()->view('payment_callback', ['data' => $data]);
+            DB::commit();
+            return response()->json($data);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'statusCode' => 500
+            ], 500);
+        }
     }
 }

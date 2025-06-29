@@ -1,33 +1,51 @@
 <?php
 
-namespace App\Filament\Resources\PaymentResource\RelationManagers;
+namespace App\Filament\Resources;
 
-use Filament\Forms;
+use App\Filament\Resources\TransactionResource\Pages;
+use App\Models\Transaction;
 use Filament\Forms\Form;
-use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\BadgeColumn;
+use Illuminate\Database\Eloquent\Model;
 
-class TransactionsRelationManager extends RelationManager
+class TransactionResource extends Resource
 {
-    protected static string $relationship = 'transactions';
-    protected static ?string $title = 'تراکنش‌ها';
+    protected static ?string $model = Transaction::class;
 
-    public function form(Form $form): Form
+    protected static ?string $navigationIcon = 'heroicon-o-banknotes';
+    protected static ?string $navigationLabel = 'تراکنش‌ها';
+    protected static ?string $modelLabel = 'تراکنش';
+    protected static ?string $pluralModelLabel = 'تراکنش‌ها';
+
+    public static function canAccess(): bool
+    {
+        return auth()->check() && auth()->user()->hasRole(['admin', 'super-admin']);
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return false;
+    }
+
+    public static function form(Form $form): Form
     {
         return $form->schema([]);
     }
 
-    public function table(Table $table): Table
+    public static function table(Table $table): Table
     {
         return $table
-            ->recordTitleAttribute('id')
             ->columns([
                 TextColumn::make('id')
                     ->label('شناسه')
                     ->sortable(),
+                TextColumn::make('payment.mealReservation.user.first_name')
+                    ->label('کاربر')
+                    ->searchable(),
                 TextColumn::make('amount')
                     ->label('مبلغ')
                     ->money('IRR')
@@ -60,10 +78,12 @@ class TransactionsRelationManager extends RelationManager
                     ->limit(30),
                 TextColumn::make('requested_at')
                     ->label('زمان درخواست')
-                    ->dateTime(),
+                    ->dateTime()
+                    ->sortable(),
                 TextColumn::make('validated_at')
                     ->label('زمان تایید')
-                    ->dateTime(),
+                    ->dateTime()
+                    ->sortable(),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
@@ -74,10 +94,25 @@ class TransactionsRelationManager extends RelationManager
                         'error' => 'خطا',
                     ])
                     ->label('وضعیت'),
+                Tables\Filters\SelectFilter::make('provider')
+                    ->options([
+                        'zarinpal' => 'زرین‌پال',
+                        'mellat' => 'ملت',
+                        'parsian' => 'پارسیان',
+                    ])
+                    ->label('درگاه'),
             ])
-            ->headerActions([])
-            ->actions([])
-            ->bulkActions([])
+            ->actions([
+                Tables\Actions\ViewAction::make(),
+            ])
             ->defaultSort('created_at', 'desc');
+    }
+
+    public static function getPages(): array
+    {
+        return [
+            'index' => Pages\ListTransactions::route('/'),
+            'view' => Pages\ViewTransaction::route('/{record}'),
+        ];
     }
 }

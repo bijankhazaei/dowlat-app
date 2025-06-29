@@ -8,7 +8,7 @@ Route::get('/', function () {
 });
 
 // make payment callback route
-Route::get('/payment/callback', [PaymentController::class, 'callback'])->name('payment.callback');
+Route::any('/payment/callback', [PaymentController::class, 'callback'])->name('payment.callback');
 
 Route::get('/pay/{transaction}', [PaymentController::class, 'redirectToGateway'])
     ->middleware(['auth'])

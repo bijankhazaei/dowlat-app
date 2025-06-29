@@ -16,9 +16,5 @@ class ListPayments extends ListRecords
         ];
     }
 
-    // when view this page redirect to OrderResources
-    public function mount(): void
-    {
-        redirect()->route('filament.admin.resources.orders.index');
-    }
+
 }
