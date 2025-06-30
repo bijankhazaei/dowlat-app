@@ -10,7 +10,7 @@ return [
     | You can switch to a different driver at runtime.
     |
     */
-    'default' => 'zibal',
+    'default' => 'zarinpal',
 
     /*
     |--------------------------------------------------------------------------
@@ -23,6 +23,17 @@ return [
     |
     */
     'drivers' => [
+        'zarinpal' => [
+            'apiPurchaseUrl' => env('ZARINPAL_SANDBOX', false) ? 'https://sandbox.zarinpal.com/pg/v4/payment/request.json' : 'https://api.zarinpal.com/pg/v4/payment/request.json',
+            'apiPaymentUrl' => env('ZARINPAL_SANDBOX', false) ? 'https://sandbox.zarinpal.com/pg/StartPay/' : 'https://www.zarinpal.com/pg/StartPay/',
+            'apiVerificationUrl' => env('ZARINPAL_SANDBOX', false) ? 'https://sandbox.zarinpal.com/pg/v4/payment/verify.json' : 'https://api.zarinpal.com/pg/v4/payment/verify.json',
+            'merchantId' => env('ZARINPAL_MERCHANT_ID', 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'),
+            'callbackUrl' => env('ZARINPAL_CALLBACK_URL', 'http://panel.dabestandowlat.com/api/payments/verify'),
+            'description' => 'پرداخت رزرو غذا',
+            'currency' => 'T',
+            'sandbox' => env('ZARINPAL_SANDBOX', false),
+            'metadata' => [],
+        ],
         'zibal' => [
             /* normal api */
             'apiPurchaseUrl' => 'https://gateway.zibal.ir/v1/request',

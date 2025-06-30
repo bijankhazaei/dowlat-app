@@ -21,24 +21,50 @@ class PaymentController extends Controller
             abort(403, 'Invalid transaction status.');
         }
 
-        $invoice = (new Invoice())
-            ->amount($transaction->amount)
-            ->detail('description', $transaction->payment->summary);
+        // Validate required fields based on Zarinpal docs
+        if (!$transaction->amount || $transaction->amount < 1000 || $transaction->amount > 500000000) {
+            abort(400, 'مبلغ باید بین 1000 تا 500000000 ریال باشد.');
+        }
 
-        return Shetabit::via($transaction->provider)
-            ->callbackUrl(
-                route('payment.callback')
-            )
-            ->purchase($invoice, function($driver, $transactionId) use ($transaction) {
-                $transaction->update([
-                    'requested_at' => now(),
-                    'authority'    => $transactionId,
-                    'gateway_url'  => config("payment.drivers.{$transaction->provider}.apiPaymentUrl").$transactionId,
-                    'status'       => ETransactionStates::Pending,
-                ]);
-            })
-            ->pay()      // generates the auto-submit form
-            ->render();
+        if (!$transaction->provider) {
+            abort(400, 'درگاه پرداخت مشخص نشده است.');
+        }
+
+        $description = $transaction->payment->summary ?? '';
+        if (empty($description) || strlen($description) > 500) {
+            abort(400, 'توضیحات الزامی است و نباید بیش از 500 کاراکتر باشد.');
+        }
+
+        $callbackUrl = route('payment.callback');
+
+        if (empty($callbackUrl)) {
+            abort(400, 'آدرس بازگشت (callback URL) مشخص نشده است.');
+        }
+
+        try {
+            $invoice = (new Invoice())
+                ->amount($transaction->amount)
+                ->detail('description', $description);
+
+            return Shetabit::via($transaction->provider)
+                ->callbackUrl(
+                    route('payment.callback')
+                )
+                ->purchase($invoice, function($driver, $transactionId) use ($transaction) {
+                    $transaction->update([
+                        'requested_at' => now(),
+                        'authority'    => $transactionId,
+                        'gateway_url'  => config("payment.drivers.{$transaction->provider}.apiPaymentUrl").$transactionId,
+                        'status'       => ETransactionStates::Pending,
+                    ]);
+                })
+                ->pay()      // generates the auto-submit form
+                ->render();
+        } catch (\Shetabit\Multipay\Exceptions\PurchaseFailedException $e) {
+            abort(400, 'خطا در اتصال به درگاه پرداخت: ' . $e->getMessage());
+        } catch (\Exception $e) {
+            abort(500, 'خطای سیستمی: ' . $e->getMessage());
+        }
     }
 
     public function callback(Request $request)
@@ -46,15 +72,15 @@ class PaymentController extends Controller
         try {
             DB::beginTransaction();
 
-            // Get trackId from Zibal callback
-            $trackId = $request->query('trackId');
+            // Get Authority from Zarinpal callback
+            $authority = $request->query('Authority');
 
-            if (!$trackId) {
-                return view('payment_callback', ['data' => ['statusCode' => 400, 'message' => 'trackId missing']]);
+            if (!$authority) {
+                return view('payment_callback', ['data' => ['statusCode' => 400, 'message' => 'Authority missing']]);
             }
 
             $transaction = Transaction::with('payment.mealReservation.user')
-                ->where('authority', $trackId)
+                ->where('authority', $authority)
                 ->first();
 
             if (!$transaction) {
@@ -108,17 +134,17 @@ class PaymentController extends Controller
         try {
             DB::beginTransaction();
 
-            // Get trackId from Zibal callback
-            $trackId = $request->query('trackId');
-            if (!$trackId) {
+            // Get Authority from Zarinpal callback
+            $authority = $request->query('Authority');
+            if (!$authority) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'trackId parameter is missing'
+                    'message' => 'Authority parameter is missing'
                 ], 400);
             }
 
             $transaction = Transaction::with('payment.mealReservation.user')
-                ->where('authority', $trackId)
+                ->where('authority', $authority)
                 ->first();
 
             if (!$transaction) {

@@ -33,7 +33,8 @@ class PaymentService
         $invoice = (new Invoice())
             ->amount($transaction->amount)
             ->detail('description', $transaction->payment->summary)
-            ->detail('mobile', $authCustomerId); // Add customer mobile if available
+            ->detail('mobile', $authCustomerId)
+            ->detail('order_id', $transaction->id); // Add order_id for Zarinpal trackId
 
         $gatewayUrl = Shetabit::via($transaction->provider)
             ->callbackUrl(route('payment.callback', $transaction->id))
